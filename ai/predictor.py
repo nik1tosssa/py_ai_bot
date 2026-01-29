@@ -39,7 +39,7 @@ class XPAnalyst:
         # Извлекаем значения (Keras для Multi-Output возвращает список)
         # predictions[0] - первый выход (complexity), predictions[1] - второй (social)
         comp = float(predictions[0][0][0])
-        soc = float(predictions[1][0][0])
+        soc = float(predictions[1][0][0]) - 5
 
         # Твоя формула расчета XP
         # Ограничиваем сложность и вес, чтобы не уходить в дикие минусы
