@@ -48,9 +48,9 @@ class XPAnalyst:
 
         # 3. Расчет XP на основе сложности
         # Например: сложность (1-10) * базовую ставку 100
-        if round(comp, 2) == 2.62:
-            comp = 0
-            text = f"\"{text}\" - скорее всего СПАМ!"
+        #if round(comp, 2) == 2.62:
+        #    comp = 0
+        #    text = f"\"{text}\" - скорее всего СПАМ!"
         total_xp = int(max(0, comp * 100))
         return {
             "text": text,
