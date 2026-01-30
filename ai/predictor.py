@@ -4,67 +4,69 @@ import pickle
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 # --- НАСТРОЙКИ ПУТЕЙ ---
+# Указываем путь к папке 'models' в директории текущего файла
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# Используем папку models для обоих файлов, как ты просил
-MODEL_PATH = os.path.join(BASE_DIR, 'models', 'xp_model.keras')
-TOKENIZER_PATH = os.path.join(BASE_DIR, 'tokenizers', 'tokenizer.pickle')
+MODELS_DIR = os.path.join(BASE_DIR, 'models')
+TOKENIZERS_DIR = os.path.join(BASE_DIR, 'tokenizers')
+
+MODEL_PATH = os.path.join(MODELS_DIR, 'complexity_model.keras')
+TOKENIZER_PATH = os.path.join(TOKENIZERS_DIR, 'tokenizer.pickle')
 
 
 class XPAnalyst:
     def __init__(self, model_path=MODEL_PATH, tokenizer_path=TOKENIZER_PATH):
-        """При создании объекта сразу загружаем активы один раз"""
+        """Загрузка модели и токенизатора из папки models"""
         try:
+            # Загружаем модель сложности
             self.model = tf.keras.models.load_model(model_path, compile=False)
+            # Загружаем токенизатор
             with open(tokenizer_path, 'rb') as f:
                 self.tokenizer = pickle.load(f)
             self.is_ready = True
+            print("✅ Нейросеть анализа сложности готова!")
         except Exception as e:
-            print(f"❌ Ошибка загрузки активов нейросети: {e}")
+            print(f"❌ Ошибка загрузки активов: {e}")
             self.is_ready = False
 
     def analyze(self, text: str):
-        """Основная функция анализа текста"""
+        """Возвращает только сложность действия и рассчитанный XP"""
         if not self.is_ready:
             return None
 
-        MAX_LEN = 20
+        MAX_LEN = 20  # Должно совпадать с параметром при обучении
 
-        # Предобработка
+        # 1. Предобработка текста
         sequence = self.tokenizer.texts_to_sequences([text])
         padded = pad_sequences(sequence, maxlen=MAX_LEN)
 
-        # Предсказание
-        predictions = self.model.predict(padded, verbose=0)
+        # 2. Предсказание (теперь только один выход — сложность)
+        prediction = self.model.predict(padded, verbose=0)
 
-        # Извлекаем значения (Keras для Multi-Output возвращает список)
-        # predictions[0] - первый выход (complexity), predictions[1] - второй (social)
-        comp = float(predictions[0][0][0])
-        soc = float(predictions[1][0][0]) - 5
+        # Извлекаем значение сложности
+        # Если модель выдает одно значение, берем первый элемент
+        comp = float(prediction[0][0])
 
-        # Твоя формула расчета XP
-        # Ограничиваем сложность и вес, чтобы не уходить в дикие минусы
-        total_xp = int(max(0, comp * soc * 100))
+        # 3. Расчет XP на основе сложности
+        # Например: сложность (1-10) * базовую ставку 100
+        total_xp = int(max(0, comp * 100))
 
-        # Возвращаем чистый словарь с данными
         return {
             "text": text,
             "complexity": round(comp, 2),
-            "social": round(soc, 2),
             "xp": total_xp,
-            "status": self._get_status(soc)
+            "status": self._get_simple_status(comp)
         }
 
-    def _get_status(self, soc_weight):
-        """Внутренняя функция для определения текстового статуса"""
-        if soc_weight > 1.5: return "🌟 Полезно"
-        if soc_weight < -0.5: return "💀 Деструктивно"
-        return "😐 Нейтрально"
+    def _get_simple_status(self, comp):
+        """Статус на основе уровня сложности"""
+        if comp > 7: return "🏆 Эпично"
+        if comp > 4: return "⚡️ Непросто"
+        return "🌱 Легко"
 
 
-# --- ПРИМЕР ИСПОЛЬЗОВАНИЯ В ДРУГОМ СКРИПТЕ ---
+# --- ТЕСТ ---
 if __name__ == "__main__":
     analyst = XPAnalyst()
-
-    result = analyst.analyze("Прочитал главу учебника по химии")
-    if result:
-        print(f"Результат: {result['xp']} XP | Статус: {result['status']}")
+    res = analyst.analyze("Спроектировал спорткар")
+    if res:
+        print(f"Текст: {res['text']} | Сложность: {res['complexity']} | XP: {res['xp']}")
