@@ -7,10 +7,11 @@ import pynvml
 from datetime import datetime
 from typing import Optional, Set
 from openai import OpenAI
-from ..config import BASE_URL, AI_API_KEY
+#from ..config import BASE_URL, AI_API_KEY
 
 # --- КОНФИГУРАЦИЯ ---
-
+BASE_URL="http://10.14.0.2:1234/v1"
+AI_API_KEY="lm-studio"
 client = OpenAI(base_url=BASE_URL, api_key=AI_API_KEY)
 
 # Темы для обеспечения разнообразия датасета
@@ -98,8 +99,8 @@ def load_existing_actions(filename: str) -> Set[str]:
 
 
 def write_to_csv(action: str, c: float):
-    """Запись в CSV в папку 'models'."""
-    filename = os.path.join('models', 'dataset.csv')
+    """Запись в CSV в папку 'dataset'."""
+    filename = os.path.join('dataset', 'dataset.csv')
     file_exists = os.path.isfile(filename)
     with open(filename, mode='a', encoding='utf-16', newline='') as f:
         writer = csv.writer(f, delimiter=';')
@@ -121,23 +122,26 @@ def get_gpu_temp() -> int:
 
 if __name__ == "__main__":
     # Создаем папку если её нет
-    if not os.path.exists('models'):
-        os.makedirs('models')
+    if not os.path.exists('dataset'):
+        os.makedirs('dataset')
 
-    csv_path = os.path.join('models', 'dataset.csv')
+    csv_path = os.path.join('dataset', 'dataset.csv')
     seen_actions = load_existing_actions(csv_path)
 
     # --- НАСТРОЙКИ ЗАПУСКА ---
-    TOTAL_RECORDS = 15000  # Сколько НОВЫХ уникальных строк нужно добавить
+    MIN_RANDOM = int(input("Минимальный порог шкалы:"))
+    MAX_RANDOM = int(input("Максимальный порог шкалы:"))
+    TOTAL_RECORDS = int(input("Количество генерируемых записей:"))  # Сколько НОВЫХ уникальных строк нужно добавить
     PAUSE_INTERVAL = 0  # Через сколько строк делать паузу
     PAUSE_TIME = 0  # Длительность паузы в секундах
+
 
     new_count = 0
     print(f"[{datetime.now().strftime('%H:%M:%S')}] Скрипт запущен.")
     print(f"Уже известно фраз: {len(seen_actions)}")
 
     while new_count < TOTAL_RECORDS:
-        target_c = random.randint(0, 10)
+        target_c = random.randint(MIN_RANDOM, MAX_RANDOM)
         action = get_action(target_c)
 
         current_temp = get_gpu_temp()
@@ -160,13 +164,7 @@ if __name__ == "__main__":
 
             print(
                 f"[{new_count}/{TOTAL_RECORDS}] | {get_gpu_temp()}°C | {datetime.now().strftime('%H:%M:%S')} | {action} | C:{final_score:.1f}")
-
-            # Пауза для охлаждения видеокарты
-            #if new_count % PAUSE_INTERVAL == 0 and new_count != 0:
-            #    print(f"--- ОХЛАЖДЕНИЕ GPU: ПАУЗА {PAUSE_TIME} СЕКУНД ---")
-            #    time.sleep(PAUSE_TIME)
         else:
-            # Если попался дубль или ошибка, пробуем еще раз без паузы
             continue
 
     print(f"--- ГЕНЕРАЦИЯ ЗАВЕРШЕНА ---")
