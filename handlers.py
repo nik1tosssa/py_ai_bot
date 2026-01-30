@@ -31,7 +31,8 @@ async def echo_handler(message: Message):
                 f"📝 {result['text']}\n"
                 f"───────────────────\n"
                 f"Сложность: {result['complexity']}/10\n"
-                f"Статус: {result['social']}/5 {result['status']}\n"
+                f"{result['status']}\n"
+                #f"Статус: {result['social']}/5 {result['status']}\n"
                 f"💰 {html.bold('Опыт:')} +{result['xp']} XP"
             )
             await message.answer(response)
