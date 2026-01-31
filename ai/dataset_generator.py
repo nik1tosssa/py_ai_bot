@@ -139,7 +139,7 @@ def get_gpu_temp() -> int:
         return 0
 
 if __name__ == "__main__":
-    # Создаем папку если её нет
+    # Создаем папку, если её нет
     if not os.path.exists('dataset'):
         os.makedirs('dataset')
 
@@ -152,7 +152,7 @@ if __name__ == "__main__":
     TOTAL_RECORDS = int(input("Количество генерируемых записей:"))  # Сколько НОВЫХ уникальных строк нужно добавить
     RANDOM_COMPLEXITY = int(input(
         f"Случайная сложность \n"
-        f"1 - случайное действие в диапозоне {MIN_RANDOM} - {MAX_RANDOM}, \n"
+        f"1 - случайное действие в диапазоне {MIN_RANDOM} - {MAX_RANDOM}, \n"
         f"0 - сложность действий будет возрастать на 1\n"
         f"Ваш ответ:"
     ))
