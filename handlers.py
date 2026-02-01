@@ -1,18 +1,21 @@
 import os
 import csv
 import string
+from datetime import datetime
 from aiogram import Router, html, F, types
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
+from logger import Logger
 
 # Импорт твоего анализатора
 from ai.predictor import XPAnalyst
 
 analyst = XPAnalyst()
 router = Router()
+logger = Logger()
 
 
 # --- 1. СОСТОЯНИЯ (FSM) ---
@@ -101,37 +104,73 @@ async def process_bad_rating(callback_query: CallbackQuery, state: FSMContext):
 
 @router.message(FeedbackStates.waiting_for_complexity)
 async def manual_complexity_input(message: Message, state: FSMContext):
+    # 1. Проверка на отмену
     if message.text == "/cancel":
         await state.clear()
-        await message.answer("Ввод отменен.")
+        await message.answer("❌ Ввод отменен. Можешь отправить новое действие.")
         return
+
+    # 2. Обработка ввода (заменяем запятую на точку для float)
     user_input = message.text.replace(',', '.')
+
     try:
         new_val = float(user_input)
+
+        # 3. Проверка диапазона
         if 0 <= new_val <= 10:
+            # Получаем сохраненный ранее текст действия
             data = await state.get_data()
-            original_text = data.get("wrong_text")
+            original_text = data.get("wrong_text", "неизвестное действие")
+
+            # --- СОХРАНЕНИЕ ДАННЫХ ---
+
+            # А) Записываем в датасет для будущего переобучения нейросети
+            # Мы пометили это как "bad", так как это исправление ошибки модели
             log_user_feedback(original_text, new_val, "bad")
-            await message.answer(f"✅ Записал: '{original_text}' как {new_val} XP.")
+
+            # Б) Обновляем сложность в текущих логах (logs.csv)
+            # Чтобы в статистике за сегодня тоже были верные цифры
+            logger.update_complexity(message.from_user.id, new_val)
+
+            # 4. Рассчитываем XP на основе новой сложности (например, x10)
+            new_xp = int(new_val * 100)
+
+            await message.answer(
+                f"✅ Спасибо за обратную связь!\n\n"
+                f"📝 Действие: «{original_text}»\n"
+                f"⚙ Новая сложность: **{new_val}**\n"
+                f"💰 Скорректированный опыт: +{new_xp} XP\n\n"
+                f"Твоя правка поможет мне стать точнее!"
+            )
+
+            # 5. Сбрасываем состояние FSM
             await state.clear()
+
         else:
-            await message.answer("⚠ Введи число от 0 до 10.")
+            await message.answer("⚠ Оценка должна быть числом от 0 до 10. Попробуй еще раз или напиши /cancel.")
+
     except ValueError:
-        await message.answer("⚠ Введи число или /cancel.")
+        await message.answer("⚠ Пожалуйста, введи только число (например: 5 или 7.5) или напиши /cancel.")
 
 
 @router.message()
-async def echo_handler(message: Message):
+async def send_answer(message: Message):
     if not message.text or message.text.startswith('/'):
         return
 
     # Очищаем текст перед анализом
     user_action = clean_text(message.text)
-
     try:
         result = analyst.analyze(user_action)
         if result:
             comp = result['complexity']
+            logger.log(
+                message.from_user.id,
+                message.from_user.username,
+                message.text,
+                comp,
+                datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+            )
             await message.answer(
                 f"📊 Сложность действия: **{comp}**\n\n"
                 f"Действие: {user_action}\n"
@@ -140,5 +179,7 @@ async def echo_handler(message: Message):
                 reply_markup=get_confirm_keyboard(comp),
                 parse_mode="Markdown"
             )
+        else:
+            await  message.answer("Упс!.. Что-то пошло не так... Мы уже работаем над этим!")
     except Exception as e:
         await message.answer(f"Ошибка при анализе: {e}")
