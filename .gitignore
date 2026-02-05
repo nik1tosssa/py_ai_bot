@@ -1,2 +1,4 @@
 .env
 /logs/logs.csv
+/ai/dataset/bad_user_dataset.csv
+/ai/dataset/good_user_dataset.csv
